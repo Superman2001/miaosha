@@ -14,6 +14,7 @@ public enum EmBusinessError implements CommonError{
     USER_NOT_LOGIN(20003,"用户还未登录"),
     OTP_CODE_ERROR(20004,"短信验证码不正确"),
     RE_REGISTER_TEL_ERROR(20005,"该手机号已被注册"),
+    USER_LOGIN_TIMEOUT(20006,"登录信息已过期"),
 
     //30000开头为交易信息错误定义
     ITEM_NOT_EXIST(30000,"商品不存在"),

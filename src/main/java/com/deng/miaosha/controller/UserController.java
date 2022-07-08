@@ -8,6 +8,7 @@ import com.deng.miaosha.service.UserService;
 import com.deng.miaosha.service.model.UserModel;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import sun.misc.BASE64Encoder;
@@ -19,6 +20,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/user")
@@ -30,6 +33,9 @@ public class UserController {
     // 与在controller方法参数中加HttpServletRequest参数效果相同
     @Autowired
     private HttpServletRequest httpServletRequest;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
 
     //用户登录
@@ -45,10 +51,19 @@ public class UserController {
         //用户登陆服务,用来校验用户登陆是否合法
         UserModel userModel = userService.login(telphone,this.EncodeByMd5(password));
 
-        //将登陆凭证加入到用户登陆成功的session内
-        this.httpServletRequest.getSession().setAttribute("LOGIN_USER",userModel);
+//        //将登陆信息加入到用户登陆成功的session内
+//        this.httpServletRequest.getSession().setAttribute("LOGIN_USER",userModel);
 
-        return CommonReturnType.createSuccessReturn(null);
+        //登录验证成功后将登录信息和凭证存入redis中
+        //生成登录凭证token,使用UUID
+        String uuidToken = UUID.randomUUID().toString().replace("-","");
+
+        //将登录凭证token和登录信息存入redis中(将两者绑定)
+        redisTemplate.opsForValue().set(uuidToken, userModel);
+        //设置缓存有效期为 1小时
+        redisTemplate.expire(uuidToken,1, TimeUnit.HOURS);
+
+        return CommonReturnType.createSuccessReturn(uuidToken);
     }
 
 
@@ -61,10 +76,7 @@ public class UserController {
         String otpCode = String.valueOf(randomInt);
 
         //将otp验证码和手机号关联
-        //todo 分布式，将<telphone,otpCode>放入 redis中
         httpServletRequest.getSession().setAttribute(telphone,otpCode);
-
-        System.out.println(httpServletRequest.getSession());//
 
         //将otp验证码通过短信发送给用户(模拟)
         System.out.println(telphone + " : " + otpCode);
@@ -82,9 +94,6 @@ public class UserController {
                                      @RequestParam(name="age")Integer age,
                                      @RequestParam(name="password")String password) throws BusinessException, UnsupportedEncodingException, NoSuchAlgorithmException {
         //验证手机号和对应的otpCode相符合
-        System.out.println(Arrays.toString(httpServletRequest.getCookies()));//
-        System.out.println(httpServletRequest.getSession());//
-
         String inSessionOtpCode = (String) httpServletRequest.getSession().getAttribute(telphone);
         if(!otpCode.equals(inSessionOtpCode)){  //otpCode经过参数绑定后一定不为null
             throw new BusinessException(EmBusinessError.OTP_CODE_ERROR);
