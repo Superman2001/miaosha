@@ -12,7 +12,7 @@ public class BusinessException extends Exception implements CommonError{
 
     //直接接收EmBusinessError的传参用于构造业务异常
     public BusinessException(CommonError commonError){
-        super();
+        super(commonError.getErrMsg());
         this.commonError = commonError;
     }
 
