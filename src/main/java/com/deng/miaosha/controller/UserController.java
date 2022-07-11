@@ -59,9 +59,9 @@ public class UserController {
         String uuidToken = UUID.randomUUID().toString().replace("-","");
 
         //将登录凭证token和登录信息存入redis中(将两者绑定)
-        redisTemplate.opsForValue().set(uuidToken, userModel);
+        redisTemplate.opsForValue().set("token_"+uuidToken, userModel);
         //设置缓存有效期为 1小时
-        redisTemplate.expire(uuidToken,1, TimeUnit.HOURS);
+        redisTemplate.expire("token_"+uuidToken,1, TimeUnit.HOURS);
 
         return CommonReturnType.createSuccessReturn(uuidToken);
     }
