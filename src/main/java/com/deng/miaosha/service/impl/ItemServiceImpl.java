@@ -57,11 +57,11 @@ public class ItemServiceImpl implements ItemService {
 
 
     @Override
-    public ItemModel getItemById(Integer id) {
+    public ItemModel getItemById(Integer id) throws BusinessException {
         ItemDO itemDO = itemDOMapper.selectByPrimaryKey(id);
-        // 商品不存在
+        //若商品不存在,抛出异常
         if(itemDO == null){
-            return null;  //todo 是否应该抛出异常
+            throw new BusinessException(EmBusinessError.ITEM_NOT_EXIST);
         }
         //若存在，获取其库存
         ItemStockDO itemStockDO = itemStockDOMapper.selectByItemId(id);

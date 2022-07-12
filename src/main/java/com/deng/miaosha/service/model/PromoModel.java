@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 
 @Data
 //本项目中，只考虑一个秒杀活动秒杀一种商品，一种商品在同一时刻只有一个对应的未开始或正在进行的秒杀活动的情况
-public class PromoModel implements Serializable {
+public class PromoModel {
     private Integer id;
 
     //秒杀活动状态 1表示还未开始，2表示进行中，3表示已结束
