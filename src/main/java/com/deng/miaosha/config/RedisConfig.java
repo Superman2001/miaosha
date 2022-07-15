@@ -11,14 +11,11 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
-import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 
 import java.net.UnknownHostException;
 
 
 @Configuration
-////将 Session存到 Redis中,并设置过期时间为 3600s
-//@EnableRedisHttpSession(maxInactiveIntervalInSeconds = 3600)
 public class RedisConfig {
     @Bean
     public RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory){

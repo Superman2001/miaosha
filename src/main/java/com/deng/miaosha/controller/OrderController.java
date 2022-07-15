@@ -14,13 +14,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/order")
 public class OrderController {
-//    @Autowired
-//    private HttpServletRequest httpServletRequest;
 
     @Autowired
     private OrderService orderService;
@@ -42,14 +39,14 @@ public class OrderController {
             throw new BusinessException(EmBusinessError.USER_NOT_LOGIN);
         }
 
-        //从 redis中获取到登录的用户信息
-        UserModel userModel = (UserModel) redisTemplate.opsForValue().get("token_"+token);
+        //从 redis中获取到登录的用户id
+        Integer userId = (Integer) redisTemplate.opsForValue().get("token_"+token);
 
-        if(userModel == null){  //用户登录信息过期
+        if(userId == null){  //用户登录信息过期
             throw new BusinessException(EmBusinessError.USER_LOGIN_TIMEOUT);
         }
 
-        OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);
+        OrderModel orderModel = orderService.createOrder(userId, itemId, promoId, amount);
 
         return CommonReturnType.createSuccessReturn(null);
     }
