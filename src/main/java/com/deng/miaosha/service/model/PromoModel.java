@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Data
-//本项目中，只考虑一个秒杀活动秒杀一种商品，一种商品在同一时刻只有一个对应的未开始或正在进行的秒杀活动的情况
+//本项目中，只针对单品降价活动，且一种商品在同一时刻只有一个正在进行的秒杀活动
 public class PromoModel {
     private Integer id;
 
@@ -28,4 +28,7 @@ public class PromoModel {
 
     //秒杀活动的商品价格
     private BigDecimal promoItemPrice;
+
+    //活动库存
+    private Integer promoItemStock;
 }

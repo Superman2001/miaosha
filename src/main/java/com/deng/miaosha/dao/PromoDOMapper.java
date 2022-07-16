@@ -3,6 +3,8 @@ package com.deng.miaosha.dao;
 import com.deng.miaosha.dataobject.PromoDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 @Mapper
 public interface PromoDOMapper {
 
@@ -14,7 +16,7 @@ public interface PromoDOMapper {
 
     PromoDO selectByPrimaryKey(Integer id);
 
-    PromoDO selectByItemId(Integer itemId);
+    List<PromoDO> selectByItemId(Integer itemId);
 
     int updateByPrimaryKeySelective(PromoDO record);
 
