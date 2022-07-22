@@ -11,6 +11,9 @@ public interface ItemService {
     //创建商品
     ItemModel createItem(@NotNull @Valid ItemModel itemModel) throws BusinessException;
 
+    //根据活动id从数据库获取活动
+    ItemModel getItemByIdWithPromo(Integer id) throws BusinessException;
+
     //商品列表浏览
     List<ItemModel> listItem();
 
@@ -21,6 +24,6 @@ public interface ItemService {
     boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException;
 
     //加销量
-    void increaseSales(Integer itemId,Integer amount) throws BusinessException;
+    //void increaseSales(Integer itemId,Integer amount) throws BusinessException;
 
 }

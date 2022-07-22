@@ -1,0 +1,33 @@
+server:
+  port: 8090
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+spring:
+  datasource:
+    name: miaosha
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://47.94.56.74:3306/miaosha?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+      username: root
+      password: djy86400
+
+  # 处理无法捕获404异常
+  mvc:
+    throw-exception-if-no-handler-found: true
+  resources:
+    add-mappings: false
+
+  #配置springboot对redis的依赖
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    database: 10
+    #password:
+
+    #设置jedis连接池
+    jedis:
+      pool:
+        max-active: 50
+        min-idle: 20

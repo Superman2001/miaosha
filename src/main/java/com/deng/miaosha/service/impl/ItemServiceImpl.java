@@ -12,6 +12,7 @@ import com.deng.miaosha.service.model.ItemModel;
 import com.deng.miaosha.service.model.PromoModel;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -35,7 +36,8 @@ public class ItemServiceImpl implements ItemService {
     private ItemStockDOMapper itemStockDOMapper;
     @Autowired
     private PromoService promoService;
-
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Override
     @Transactional
@@ -55,28 +57,46 @@ public class ItemServiceImpl implements ItemService {
         return getItemById(itemModel.getId());
     }
 
-
-    @Override
-    public ItemModel getItemById(Integer id) throws BusinessException {
-        ItemDO itemDO = itemDOMapper.selectByPrimaryKey(id);
-        //若商品不存在,抛出异常
+    //从数据库中获取商品信息（不带活动）
+    public ItemModel getItemById(Integer itemId){
+        ItemDO itemDO = itemDOMapper.selectByPrimaryKey(itemId);
+        //若商品不存在
         if(itemDO == null){
-            throw new BusinessException(EmBusinessError.ITEM_NOT_EXIST);
+            return null;
         }
         //若存在，获取其库存
-        ItemStockDO itemStockDO = itemStockDOMapper.selectByItemId(id);
-
+        ItemStockDO itemStockDO = itemStockDOMapper.selectByItemId(itemId);
         //将 itemDO + itemStockDO -> itemModel
         ItemModel itemModel = convertModelFromDataObject(itemDO, itemStockDO);
 
+        return itemModel;
+    }
+
+    public ItemModel getItemByIdWithPromoFromRedis(Integer itemId){
+        ItemModel itemModel = (ItemModel) redisTemplate.opsForValue().get("item_"+itemId);
+        return itemModel;
+    }
+
+
+    //根据活动id从数据库获取活动
+    @Override
+    public ItemModel getItemByIdWithPromo(Integer itemId) throws BusinessException {
+        ItemModel itemModel = getItemById(itemId);
+
+
         //获取未开始或正在进行的秒杀活动
-        PromoModel promoModel = promoService.getPromoByItemId(id);
-        if(promoModel != null && promoModel.getStatus() != 3){
-            itemModel.setPromoModel(promoModel);
-        }
+//        List<PromoModel> promoModelList = promoService.getPromoByItemId(id);
+//        if(promoModelList.size() == 0){  //若没有对应的秒杀活动
+//
+//        }
+//        if(promoModel != null && promoModel.getStatus() != 3){
+//            itemModel.setPromoModel(promoModel);
+//        }
 
         return itemModel;
     }
+
+    //根据活动id从redis获取活动
 
 
     @Override
@@ -92,6 +112,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
 
+    //扣减（数据库中的）商品库存
     @Override
     public boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException {
         int affectedRow = itemStockDOMapper.decreaseStock(itemId, amount);
@@ -105,10 +126,14 @@ public class ItemServiceImpl implements ItemService {
     }
 
 
-    @Override
-    public void increaseSales(Integer itemId, Integer amount) throws BusinessException {
-        itemDOMapper.increaseSales(itemId, amount);
-    }
+
+
+
+    //todo 删除销量字段，本项目不考虑普通销量和活动销量
+//    @Override
+//    public void increaseSales(Integer itemId, Integer amount) throws BusinessException {
+//        itemDOMapper.increaseSales(itemId, amount);
+//    }
 
 
 

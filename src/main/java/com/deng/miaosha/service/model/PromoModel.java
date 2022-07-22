@@ -31,4 +31,5 @@ public class PromoModel {
 
     //活动库存
     private Integer promoItemStock;
+    //todo 加活动库存表
 }

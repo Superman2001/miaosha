@@ -2,6 +2,7 @@ package com.deng.miaosha.service.impl;
 
 import com.deng.miaosha.dao.PromoDOMapper;
 import com.deng.miaosha.dataobject.PromoDO;
+import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.service.PromoService;
 import com.deng.miaosha.service.model.PromoModel;
 import org.joda.time.DateTime;
@@ -103,6 +104,7 @@ public class PromoServiceImpl implements PromoService {
     }
 
 
+    //发布活动，从商品库存中划分出指定的库存数量到活动库存中
     @Override
     @Transactional
     public void publishPromo(PromoModel promoModel) {
@@ -127,6 +129,7 @@ public class PromoServiceImpl implements PromoService {
 
     }
 
+    //结束活动，将活动库存中剩余的返还到商品库存中
 
 
     //判断活动状态
@@ -142,6 +145,19 @@ public class PromoServiceImpl implements PromoService {
         }else{  //正在进行
             return 2;
         }
+    }
+
+
+    //扣减扣减（数据库中的）活动库存
+    public boolean decreasePromoStock(Integer itemId, Integer amount) throws BusinessException {
+        //todo
+        return false;
+    }
+
+    //扣减（redis中的）活动库存
+    public boolean decreasePromoStockFromRedis(Integer itemId, Integer amount) throws BusinessException {
+        //todo
+        return false;
     }
 
 
