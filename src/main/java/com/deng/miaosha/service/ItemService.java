@@ -11,19 +11,25 @@ public interface ItemService {
     //创建商品
     ItemModel createItem(@NotNull @Valid ItemModel itemModel) throws BusinessException;
 
-    //根据活动id从数据库获取活动
+    //从数据库获取商品
+    ItemModel getItemById(Integer id) throws BusinessException;
+
+    //获取商品（带活动）
     ItemModel getItemByIdWithPromo(Integer id) throws BusinessException;
+
+    //将商品信息存入redis中（带活动）（使用分布式锁防止缓存击穿） //todo
+    ItemModel cacheItemToRedis(Integer itemId) throws BusinessException;
+
+    //从缓存中获取商品信息（带活动）
+    ItemModel getItemByIdFromCache(Integer itemId) throws BusinessException;
+
+    //刷新商品缓存（刷新本地缓存和redis中缓存）
+    ItemModel refreshItemCache(Integer itemId) throws BusinessException;
 
     //商品列表浏览
     List<ItemModel> listItem();
 
-    //商品详情浏览
-    ItemModel getItemById(Integer id) throws BusinessException;
-
     //减库存
     boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException;
-
-    //加销量
-    //void increaseSales(Integer itemId,Integer amount) throws BusinessException;
 
 }

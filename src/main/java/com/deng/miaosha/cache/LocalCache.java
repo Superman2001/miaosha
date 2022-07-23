@@ -1,16 +1,16 @@
-package com.deng.miaosha.service.impl;
+package com.deng.miaosha.cache;
 
-import com.deng.miaosha.service.CacheService;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.util.concurrent.TimeUnit;
 
+//用于操作本地缓存
 //todo 使用 guava提供的本地缓存 和 CurrentHashMap+LRU策略实现的本地缓存 的区别
-@Service
-public class CacheServiceImpl implements CacheService {
+@Component
+public class LocalCache {
 
     private Cache<String,Object> commonCache = null;
 
@@ -25,12 +25,12 @@ public class CacheServiceImpl implements CacheService {
                 .expireAfterWrite(60, TimeUnit.SECONDS).build();
     }
 
-    @Override
+    //存
     public void setCommonCache(String key, Object value) {
         commonCache.put(key,value);
     }
 
-    @Override
+    //取
     public Object getFromCommonCache(String key) {
         return commonCache.getIfPresent(key);
     }
