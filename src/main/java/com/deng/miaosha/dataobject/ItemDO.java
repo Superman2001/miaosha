@@ -14,8 +14,6 @@ public class ItemDO {
 
     private String description;
 
-    private Integer sales;
-
     private String imgUrl;
 
 }

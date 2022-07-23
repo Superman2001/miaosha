@@ -28,13 +28,10 @@ public class ItemModel {
     @NotBlank(message = "商品描述信息不能为空")
     private String description;
 
-    //商品的销量
-    private Integer sales;
-
     //商品描述图片的url
     @NotBlank(message = "商品图片信息不能为空")
     private String imgUrl;
 
-    //使用聚合模型,如果promoModel不为空，则表示其拥有还未结束的秒杀活动
+    //使用聚合模型,如果promoModel不为空，则表示其拥有还未结束的秒杀活动（是随时间动态变化的）
     private PromoModel promoModel;
 }
