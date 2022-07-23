@@ -11,17 +11,11 @@ import java.math.BigDecimal;
 public class PromoModel {
     private Integer id;
 
-    //秒杀活动状态 1表示还未开始，2表示进行中，3表示已结束
-    private Integer status;
+//    //秒杀活动状态 1表示还未开始，2表示进行中，3表示已结束（是随时间动态变化的）
+//    private Integer status;
 
     //秒杀活动名称
     private String promoName;
-
-    //秒杀活动的开始时间
-    private DateTime startDate;
-
-    //秒杀活动的结束时间
-    private DateTime endDate;
 
     //秒杀活动的适用商品
     private Integer itemId;
@@ -31,5 +25,10 @@ public class PromoModel {
 
     //活动库存
     private Integer promoItemStock;
-    //todo 加活动库存表
+
+    //秒杀活动的开始时间
+    private DateTime startDate;
+
+    //秒杀活动的结束时间
+    private DateTime endDate;
 }
