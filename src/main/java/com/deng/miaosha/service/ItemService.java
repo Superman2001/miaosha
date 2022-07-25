@@ -30,6 +30,6 @@ public interface ItemService {
     List<ItemModel> listItem();
 
     //减库存
-    boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException;
+    boolean decreaseStock(Integer itemId, Integer amount);
 
 }

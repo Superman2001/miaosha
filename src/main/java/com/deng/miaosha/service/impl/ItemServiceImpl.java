@@ -177,7 +177,7 @@ public class ItemServiceImpl implements ItemService {
     //扣减（数据库中的）商品库存
     @Override
     @Transactional
-    public boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException {
+    public boolean decreaseStock(Integer itemId, Integer amount){
         int affectedRow = itemStockDOMapper.decreaseStock(itemId, amount);
         if(affectedRow > 0){
             //更新库存成功

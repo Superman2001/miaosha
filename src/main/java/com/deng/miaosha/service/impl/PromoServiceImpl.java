@@ -6,8 +6,12 @@ import com.deng.miaosha.dataobject.PromoDO;
 import com.deng.miaosha.dataobject.PromoStockDO;
 import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.error.EmBusinessError;
+import com.deng.miaosha.service.ItemService;
 import com.deng.miaosha.service.PromoService;
+import com.deng.miaosha.service.UserService;
+import com.deng.miaosha.service.model.ItemModel;
 import com.deng.miaosha.service.model.PromoModel;
+import com.deng.miaosha.service.model.UserModel;
 import org.joda.time.DateTime;
 import org.joda.time.Seconds;
 import org.springframework.beans.BeanUtils;
@@ -22,6 +26,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 //本项目中，仅针对单品降价活动，即一个活动只对应一个商品
@@ -32,7 +38,11 @@ public class PromoServiceImpl implements PromoService {
     @Autowired
     private PromoStockDOMapper promoStockDOMapper;
     @Autowired
-    private RedisTemplate redisTemplate;
+    private ItemService itemService;
+    @Autowired
+    private UserService userService;
+    @Autowired
+    private RedisTemplate<Object,Object> redisTemplate;
 
     //扣减库存的lua脚本
     //扣减成功return 剩余库存数
@@ -49,7 +59,7 @@ public class PromoServiceImpl implements PromoService {
             "end;";
 
 
-    //根据活动id从数据库获取活动
+    //根据活动id从数据库获取活动（带库存）
     @Override
     public PromoModel getPromoById(Integer promoId){
         PromoDO promoDO = promoDOMapper.selectByPrimaryKey(promoId);
@@ -63,20 +73,21 @@ public class PromoServiceImpl implements PromoService {
     }
 
 
-    //根据活动id从redis获取活动
+    //根据活动id从redis获取活动（带库存）
+    //在活动结束后调用此方法，可能会由于redis中活动已失效导致获取不到
     @Override
     public PromoModel getPromoByIdFromRedis(Integer promoId){
         PromoModel promoModel = (PromoModel) redisTemplate.opsForValue().get("promo_"+promoId);
-
-//        if (promoModel != null) {
-//            promoModel.setStatus(judgePromoStatus(promoModel));
-//        }
+        if(promoModel != null){  //从redis获取活动库存
+            Integer promoStock = (Integer) redisTemplate.opsForValue().get("promo_item_stock_"+promoId);
+            promoModel.setPromoItemStock(promoStock);
+        }
 
         return promoModel;
     }
 
 
-    //获取对应商品的所有秒杀活动
+    //获取对应商品的所有秒杀活动（带库存）
     @Override
     public List<PromoModel> getPromoByItemId(Integer itemId) {
         //获取商品对应的所有秒杀活动
@@ -85,7 +96,10 @@ public class PromoServiceImpl implements PromoService {
         //转换为 promoModelList
         List<PromoModel> promoModelList = promoDOList.stream().map(promoDO -> {
             PromoModel promoModel = convertFromDataObject(promoDO);
-//            promoModel.setStatus(judgePromoStatus(promoModel));
+            if(promoModel != null){  //获取活动库存
+                PromoStockDO promoStockDO = promoStockDOMapper.selectByPromoId(promoModel.getId());
+                promoModel.setPromoItemStock(promoStockDO.getStock());
+            }
             return promoModel;
         }).collect(Collectors.toList());
 
@@ -93,7 +107,7 @@ public class PromoServiceImpl implements PromoService {
     }
 
 
-    //找到 正在进行 或 未开始但距离开始时间最近 的秒杀活动
+    //找到 正在进行 或 未开始但距离开始时间最近 的秒杀活动（带库存）
     @Override
     public PromoModel findRecentPromoByItemId(Integer itemId){
         List<PromoModel> promoModelList = getPromoByItemId(itemId);
@@ -173,7 +187,7 @@ public class PromoServiceImpl implements PromoService {
     //扣减扣减（数据库中的）活动库存
     @Override
     @Transactional
-    public boolean decreasePromoStock(Integer promoId, Integer amount) throws BusinessException {
+    public boolean decreasePromoStock(Integer promoId, Integer amount){
         int affectedRow = promoStockDOMapper.decreaseStock(promoId,amount);
         if(affectedRow > 0){
             //更新库存成功
@@ -202,17 +216,22 @@ public class PromoServiceImpl implements PromoService {
         });
 
         if(result == null || result == -2){  //未知异常
-            throw new BusinessException(EmBusinessError.STOCK_UNINITIALIZED);
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR);
         }else if(result == -1){  //库存不足
             return false;
-        }else return true;
+        }else{  //扣减成功
+            if(result == 0){  //若剩余库存为0，在redis中作售完标记
+                redisTemplate.opsForValue().set("promo_item_stock_sell_out"+promoId, "true");
+            }
+            return true;
+        }
     }
 
 
     //增加（redis中的）活动库存
     //（当创建订单发生异常时，回补redis中库存）
     @Override
-    public void increaseStock (Integer promoId, Integer amount) throws BusinessException{
+    public void increaseStockFromRedis (Integer promoId, Integer amount) throws BusinessException{
         redisTemplate.opsForValue().increment("promo_item_stock_"+promoId, amount);
     }
 

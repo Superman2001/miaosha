@@ -24,12 +24,13 @@ public interface PromoService {
     Integer judgePromoStatus(PromoModel promoModel);
 
     //扣减扣减（数据库中的）活动库存
-    boolean decreasePromoStock(Integer promoId, Integer amount) throws BusinessException;
+    boolean decreasePromoStock(Integer promoId, Integer amount);
 
     //扣减（redis中的）活动库存
-    boolean decreasePromoStockFromRedis(Integer itemId, Integer amount) throws BusinessException;
+    boolean decreasePromoStockFromRedis(Integer promoId, Integer amount) throws BusinessException;
 
     //增加（redis中的）活动库存
     //（当创建订单发生异常时，回补redis中库存）
-    void increaseStock(Integer promoId, Integer amount) throws BusinessException;
+    void increaseStockFromRedis(Integer promoId, Integer amount) throws BusinessException;
+
 }

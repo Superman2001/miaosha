@@ -52,7 +52,7 @@ public class UserController {
 
         //将登录凭证token和登录信息存入redis中(将两者绑定),设置有效期为 1小时
         redisTemplate.opsForValue().set("token_"+uuidToken, userModel.getId(), 1, TimeUnit.HOURS);
-        redisTemplate.opsForValue().set(userModel.getId().toString(), userModel, 1, TimeUnit.HOURS);
+        redisTemplate.opsForValue().set("user_"+userModel.getId(), userModel, 1, TimeUnit.HOURS);
 
         return CommonReturnType.createSuccessReturn(uuidToken);
     }
