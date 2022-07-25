@@ -10,5 +10,8 @@ import javax.validation.constraints.NotNull;
 public interface UserService {
     UserModel login(String telphone, String encrptPassword) throws BusinessException;
     UserModel getUserById(Integer id);
+
+    UserModel getUserByIdFromRedis(Integer id);
+
     void register(@NotNull @Valid UserModel userModel) throws BusinessException;
 }

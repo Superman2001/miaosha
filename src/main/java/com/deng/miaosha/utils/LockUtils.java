@@ -41,7 +41,7 @@ public class LockUtils {
     //加分布式锁,重复尝试加锁，直到成功
     public String tryLock(String key) throws BusinessException {
         String lockValue = lock(key);
-        //循环重试加锁（重试30次，每次1s）
+        //循环重试加锁（每秒重试1次,重试30次）
         for(int i = 0; i < 30 && lockValue == null; i++){
             try {
                 TimeUnit.SECONDS.sleep(1);
@@ -51,7 +51,7 @@ public class LockUtils {
             lockValue = lock(key); //重新加锁
         }
         if(lockValue == null){ //最终加锁失败
-            throw new BusinessException(EmBusinessError.SYSTEM_BUSY);
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR);
         }
         return lockValue;
     }

@@ -6,6 +6,7 @@ package com.deng.miaosha.error;
  */
 public enum EmBusinessError implements CommonError{
     //通用错误类型10001
+
     PARAMETER_VALIDATION_ERROR(10001,"参数不合法"),
 
     //20000开头为用户信息相关错误定义
@@ -22,7 +23,11 @@ public enum EmBusinessError implements CommonError{
     PROMO_ERROR(30002,"活动信息不正确"),
     PROMO_NOT_START(30003,"活动还未开始"),
     BUY_AMOUNT_ERROR(30004,"低于起购数量或超过限购数量"),
+    STOCK_SELL_OUT(30005,"商品已售完"),
 
+    PROMO_BUSY(10000,"当前参与人数过多，请稍后重试"),
+
+    UNKNOWN_ERROR(500500,"未知错误,请联系管理员"),
 
     ;
 
