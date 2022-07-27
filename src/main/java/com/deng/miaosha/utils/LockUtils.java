@@ -21,7 +21,9 @@ public class LockUtils {
 
     //释放锁的lua脚本
     private static final String RELEASE_LOCK_LUA =
-            "if redis.call('get', KEYS[1]) == ARGV[1] then"+
+            "local value = redis.call('get', KEYS[1]);"+
+            "value = string.gsub(value,'\\\"','');"+
+            "if value == ARGV[1] then"+
             "   return redis.call('del', KEYS[1]);"+
             "else return 0;"+
             "end;";
@@ -30,7 +32,7 @@ public class LockUtils {
     //加分布式锁，只尝试一次，在成功时return 锁的value，失败时return null
     public String lock(String key){
         String value = UUID.randomUUID().toString().replace("-","");
-        Boolean flag = redisTemplate.opsForValue().setIfAbsent(key, value, 30, TimeUnit.SECONDS);
+        Boolean flag = redisTemplate.opsForValue().setIfAbsent(key, value, 3000, TimeUnit.SECONDS);
         if(flag != null && flag){
             return value;
         }
