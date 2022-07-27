@@ -4,14 +4,14 @@ import lombok.Data;
 
 import java.io.Serializable;
 
-//"扣减数据库中库存"消息
+//用于"扣减数据库中库存"的消息
 @Data
-public class DecreaseStockMsg implements Serializable {
+public class StockMessage {
     private Integer promoId;
 
     private Integer itemId;
 
     private Integer amount;
 
-    private String orderId;
+    private String stockLogId;
 }

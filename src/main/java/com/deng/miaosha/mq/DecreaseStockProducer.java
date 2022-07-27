@@ -1,7 +1,8 @@
 package com.deng.miaosha.mq;
 
+import com.alibaba.fastjson.JSON;
 import com.deng.miaosha.error.BusinessException;
-import com.deng.miaosha.mq.message.DecreaseStockMsg;
+import com.deng.miaosha.mq.message.StockMessage;
 import com.deng.miaosha.service.OrderService;
 import org.apache.rocketmq.client.producer.*;
 import org.apache.rocketmq.spring.annotation.RocketMQTransactionListener;
@@ -24,8 +25,6 @@ import java.util.concurrent.TimeUnit;
 public class DecreaseStockProducer {
     @Value("${mq.topic.decreasePromoStock}")
     private String topicName;
-    @Value("${mq.group.producer.decreasePromoStock}")
-    private String groupName;
     @Autowired
     private RocketMQTemplate rocketMQTemplate;
     @Autowired
@@ -40,13 +39,13 @@ public class DecreaseStockProducer {
 
 
     //发送事务消息
-    public boolean sendTransactionMsg(Integer userId, Integer itemId, Integer promoId, Integer amount, String orderId){
+    public boolean sendTransactionMsg(Integer userId, Integer itemId, Integer promoId, Integer amount, String stockLogId){
         //定义消息
-        DecreaseStockMsg decreaseStockMsg = new DecreaseStockMsg();
-        decreaseStockMsg.setPromoId(promoId);
-        decreaseStockMsg.setItemId(itemId);
-        decreaseStockMsg.setAmount(amount);
-        decreaseStockMsg.setOrderId(orderId);
+        StockMessage stockMessage = new StockMessage();
+        stockMessage.setPromoId(promoId);
+        stockMessage.setItemId(itemId);
+        stockMessage.setAmount(amount);
+        stockMessage.setStockLogId(stockLogId);
 
         //定义其他信息（待创建的订单信息）
         Map<String,Object> orderInfo = new HashMap<>();
@@ -54,11 +53,10 @@ public class DecreaseStockProducer {
         orderInfo.put("itemId",itemId);
         orderInfo.put("promId",promoId);
         orderInfo.put("amount",amount);
-        orderInfo.put("orderId",orderId);
 
-        System.out.println("发送消息:"+decreaseStockMsg);//
         //发送半事务消息
-        Message<DecreaseStockMsg> message = MessageBuilder.withPayload(decreaseStockMsg).build();
+        System.out.println("发送消息:"+stockMessage);//
+        Message<StockMessage> message = MessageBuilder.withPayload(stockMessage).build();
         TransactionSendResult result = rocketMQTemplate.sendMessageInTransaction(topicName, message, orderInfo);
         if(result.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE){
             //事务消息提交，总事务执行成功
@@ -75,36 +73,42 @@ public class DecreaseStockProducer {
         //执行本地事务（在发送完事务消息后执行该方法）
         @Override
         public RocketMQLocalTransactionState executeLocalTransaction(Message message, Object o) {
+            //获取消息中的stockLogId
+            String msg = new String((byte[]) message.getPayload());
+            StockMessage stockMessage = JSON.parseObject(msg, StockMessage.class);
+            String stockLogId = stockMessage.getStockLogId();
+
+            //获取待创建的订单信息
             Map<String,Object> orderInfo = (Map<String, Object>) o;
             Integer userId = (Integer) orderInfo.get("userId");
             Integer itemId = (Integer) orderInfo.get("itemId");
             Integer promoId = (Integer) orderInfo.get("promId");
             Integer amount = (Integer) orderInfo.get("amount");
-            String orderId = (String) orderInfo.get("orderId");
 
             try {
                 //执行本地事务
-                orderService.createOrder(userId, itemId, promoId, amount, orderId);
+                orderService.createOrder(userId, itemId, promoId, amount);
             } catch (BusinessException businessException) {  //本地事务失败
-                //设置对应的订单的状态为回滚状态
+                //设置对应的库存消息的状态为回滚状态
                 //todo 设置数据库
-                redisTemplate.opsForValue().set("order_state_"+orderId, 2,10, TimeUnit.MINUTES);
+                redisTemplate.opsForValue().set("stock_msg_state_"+stockLogId, 2,10, TimeUnit.MINUTES);
                 return RocketMQLocalTransactionState.ROLLBACK;
             }
-            //本地事务成功，设置对应的订单的状态为提交状态
+            //本地事务成功，设置对应的库存消息的状态为提交状态
             //todo 设置数据库
-            redisTemplate.opsForValue().set("order_state_"+orderId, 1,10, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("stock_msg_state_"+stockLogId, 1,10, TimeUnit.MINUTES);
             return RocketMQLocalTransactionState.COMMIT;
         }
 
         //回调检查本地事务状态
         @Override
         public RocketMQLocalTransactionState checkLocalTransaction(Message message) {
-            //获取消息中的orderId
-            DecreaseStockMsg msg = (DecreaseStockMsg)message.getPayload();
-            String orderId = msg.getOrderId();
+            //获取消息中的stockLogId
+            String msg = new String((byte[]) message.getPayload());
+            StockMessage stockMessage = JSON.parseObject(msg, StockMessage.class);
+            String stockLogId = stockMessage.getStockLogId();
             //回查订单状态
-            Integer state = (Integer) redisTemplate.opsForValue().get("order_state_"+orderId);
+            Integer state = (Integer) redisTemplate.opsForValue().get("stock_msg_state_"+stockLogId);
             if(state == null){  //若redis中订单状态已失效
                 //todo 去数据库中查
             }
