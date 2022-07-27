@@ -35,16 +35,15 @@ spring:
 #配置rocketmq
 rocketmq:
   name-server: localhost:9876
-
+  #必须配置
+  producer:
+    group: producer-group-1
 
 #需要用到的属性
 mq:
   topic:
     decreasePromoStock: decrease-promo-stock-topic
 
-
   group:
-    producer:
-      decreasePromoStock: decrease-promo-stock-producer-group
     consumer:
       decreasePromoStock: decrease-promo-stock-consumer-group

@@ -6,12 +6,8 @@ import com.deng.miaosha.dataobject.PromoDO;
 import com.deng.miaosha.dataobject.PromoStockDO;
 import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.error.EmBusinessError;
-import com.deng.miaosha.service.ItemService;
 import com.deng.miaosha.service.PromoService;
-import com.deng.miaosha.service.UserService;
-import com.deng.miaosha.service.model.ItemModel;
 import com.deng.miaosha.service.model.PromoModel;
-import com.deng.miaosha.service.model.UserModel;
 import org.joda.time.DateTime;
 import org.joda.time.Seconds;
 import org.springframework.beans.BeanUtils;
@@ -23,10 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import redis.clients.jedis.Jedis;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -38,15 +31,11 @@ public class PromoServiceImpl implements PromoService {
     @Autowired
     private PromoStockDOMapper promoStockDOMapper;
     @Autowired
-    private ItemService itemService;
-    @Autowired
-    private UserService userService;
-    @Autowired
     private RedisTemplate<Object,Object> redisTemplate;
 
     //扣减库存的lua脚本
     //扣减成功return 剩余库存数
-    //扣减失败：库存不足return -1，其他原因return -2
+    //扣减失败：库存不足return -1，库存不存在return -2
     private static final String DECREASE_STOCK_LUA =
             "if(redis.call('exists', KEYS[1]) == 1) then"+
             "    local stock = tonumber(redis.call('get', KEYS[1]));"+
@@ -98,7 +87,9 @@ public class PromoServiceImpl implements PromoService {
             PromoModel promoModel = convertFromDataObject(promoDO);
             if(promoModel != null){  //获取活动库存
                 PromoStockDO promoStockDO = promoStockDOMapper.selectByPromoId(promoModel.getId());
-                promoModel.setPromoItemStock(promoStockDO.getStock());
+                if(promoStockDO != null){
+                    promoModel.setPromoItemStock(promoStockDO.getStock());
+                }
             }
             return promoModel;
         }).collect(Collectors.toList());
@@ -129,14 +120,14 @@ public class PromoServiceImpl implements PromoService {
         PromoModel recentPromo = readyPromoList.stream().min((promo1, promo2) -> {
             DateTime start1 = promo1.getStartDate();
             DateTime start2 = promo2.getStartDate();
-            if(start1.isBefore(start2)){
+            if (start1.isBefore(start2)) {
                 return -1;
-            }else if(start1.isAfter(start2)){
+            } else if (start1.isAfter(start2)) {
                 return 1;
-            }else{
+            } else {
                 return 0;
             }
-        }).get();
+        }).orElse(null);
 
         return recentPromo;
     }
@@ -210,7 +201,7 @@ public class PromoServiceImpl implements PromoService {
         List<String> args = new ArrayList<>();
         args.add(Integer.toString(amount));
 
-        Long result = (Long) redisTemplate.execute((RedisCallback<Long>) redisConnection -> {
+        Long result = redisTemplate.execute((RedisCallback<Long>) redisConnection -> {
             Jedis jedis = (Jedis) redisConnection.getNativeConnection(); //单机版redis
             return (Long) jedis.eval(DECREASE_STOCK_LUA, keys, args);
         });

@@ -3,6 +3,7 @@ package com.deng.miaosha.controller;
 import com.deng.miaosha.cache.LocalCache;
 import com.deng.miaosha.controller.viewobject.ItemVO;
 import com.deng.miaosha.error.BusinessException;
+import com.deng.miaosha.error.EmBusinessError;
 import com.deng.miaosha.response.CommonReturnType;
 import com.deng.miaosha.service.ItemService;
 import com.deng.miaosha.service.PromoService;
@@ -51,6 +52,10 @@ public class ItemController {
     @GetMapping("/get")
     public CommonReturnType getItemById(@RequestParam(name = "id")Integer id) throws BusinessException {
         ItemModel itemModel = itemService.getItemByIdFromCache(id);
+
+        if(itemModel == null){
+            throw new BusinessException(EmBusinessError.ITEM_NOT_EXIST);
+        }
 
         ItemVO itemVO = convertVOFromModel(itemModel);
 

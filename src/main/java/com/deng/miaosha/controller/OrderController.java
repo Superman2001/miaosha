@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PostConstruct;
+import java.util.UUID;
 import java.util.concurrent.*;
 
 
@@ -71,20 +72,25 @@ public class OrderController {
             throw new BusinessException(EmBusinessError.PROMO_BUSY);
         }
 
+        boolean qualification = false;
         if(promoId == null){ //普通下单
-            //todo
+            //先获取下单资格，若没有资格会抛出对应原因的异常
+            qualification = orderService.getOrderQualification(userId, itemId, amount);
+            if(qualification){
+                orderService.createOrder(userId, itemId, amount);
+            }
         }else{  //活动下单
-            //先获取下单资格
-            boolean qualification = orderService.getOrderQualification(userId, itemId, promoId, amount);
+            //先获取下单资格，若没有资格会抛出对应原因的异常
+            qualification = orderService.getOrderQualification(userId, itemId, promoId, amount);
             if(qualification){
                 Future<Boolean> future = executorService.submit(() -> {
-                    //生成订单号
-                    String orderId = orderService.generateOrderNo();
-                    //将订单状态设为未知状态
+                    //生成操作库存的日志
+                    String stockLogId = UUID.randomUUID().toString().replace("-","");
+                    //将库存消息的状态设为未知状态
                     //todo 设置数据库
-                    redisTemplate.opsForValue().set("order_state_"+orderId, 0,10, TimeUnit.MINUTES);
+                    redisTemplate.opsForValue().set("stock_msg_state_"+stockLogId, 0,10, TimeUnit.MINUTES);
                     //发送事务消息,之后执行本地事务
-                    return producer.sendTransactionMsg(userId, itemId, promoId, amount, orderId);
+                    return producer.sendTransactionMsg(userId, itemId, promoId, amount, stockLogId);
                 });
                 try {
                     if(!(Boolean)future.get()){

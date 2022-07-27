@@ -37,7 +37,7 @@ public class ItemServiceImpl implements ItemService {
     @Autowired
     private PromoService promoService;
     @Autowired
-    private RedisTemplate redisTemplate;
+    private RedisTemplate<Object,Object> redisTemplate;
     @Autowired
     private LocalCache localCache;
     @Autowired
@@ -86,8 +86,10 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public ItemModel getItemByIdWithPromo(Integer itemId) throws BusinessException {
         ItemModel itemModel = getItemById(itemId);
-        PromoModel promoModel = promoService.findRecentPromoByItemId(itemId);
-        itemModel.setPromoModel(promoModel);
+        if(itemModel != null){
+            PromoModel promoModel = promoService.findRecentPromoByItemId(itemId);
+            itemModel.setPromoModel(promoModel);
+        }
 
         return itemModel;
     }
@@ -102,7 +104,7 @@ public class ItemServiceImpl implements ItemService {
         redisTemplate.opsForValue().set("item_"+itemId, itemModel);
         //设置过期时间
         int seconds = 600;
-        if(itemModel.getPromoModel() != null){ //若有活动，在活动结束时过期（因为活动商品是热点数据）
+        if(itemModel != null && itemModel.getPromoModel() != null){ //若有活动，在活动结束时过期（因为活动商品是热点数据）
             seconds = timeUtils.secondsBetweenNow(itemModel.getPromoModel().getEndDate());
         }
         redisTemplate.expire("item_"+itemId, seconds, TimeUnit.SECONDS);
@@ -126,13 +128,15 @@ public class ItemServiceImpl implements ItemService {
         }
         if(itemModel == null){ //若在本地缓存中不存在
             //到redis中获取
-            itemModel = (ItemModel) redisTemplate.opsForValue().get("item_"+itemId);
-            if(itemModel == null){ //若在redis中不存在（使用分布式锁防止缓存击穿）
+            if(redisTemplate.hasKey("item_"+itemId)){  //若在redis中存在
+                itemModel = (ItemModel) redisTemplate.opsForValue().get("item_"+itemId);
+            }else{ //若在redis中不存在（使用分布式锁防止缓存击穿）
                 //加分布式锁
                 String lockValue = lockUtils.tryLock("item_lock_" + itemId);
                 try{
-                    itemModel = (ItemModel) redisTemplate.opsForValue().get("item_"+itemId);
-                    if(itemModel == null){
+                    if(redisTemplate.hasKey("item_"+itemId)){  //若在redis中存在
+                        itemModel = (ItemModel) redisTemplate.opsForValue().get("item_"+itemId);
+                    }else{
                         //到数据库中获取并放入redis中
                         itemModel = cacheItemToRedis(itemId);
                     }
@@ -141,8 +145,10 @@ public class ItemServiceImpl implements ItemService {
                     lockUtils.unlock("item_lock_" + itemId, lockValue);
                 }
             }
-            //放入本地缓存中
-            localCache.setCommonCache("item_"+itemId, itemModel);
+            if(itemModel != null){
+                //放入本地缓存中
+                localCache.setCommonCache("item_"+itemId, itemModel);
+            }
         }
 
         return itemModel;

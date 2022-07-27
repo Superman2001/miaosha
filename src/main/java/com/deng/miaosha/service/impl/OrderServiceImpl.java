@@ -47,31 +47,12 @@ public class OrderServiceImpl implements OrderService {
 
 
     //获取下单资格（普通下单）
-    //todo
-
-
-    //获取下单资格（活动下单）
-    //return true表示有资格下单
-    //其他情况抛出异常
     @Override
-    public boolean getOrderQualification(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException{
-
-        //校验活动
-        PromoModel promoModel = promoService.getPromoByIdFromRedis(promoId);
-        if(promoModel == null || promoService.judgePromoStatus(promoModel) != 2){  //活动不存在或活动不是正在进行
-            throw new BusinessException(EmBusinessError.PROMO_ERROR);
-        }
-        if(redisTemplate.hasKey("promo_item_stock_sell_out"+promoId)){  //判断是否已售完
-            throw new BusinessException(EmBusinessError.STOCK_SELL_OUT);
-        }
-
+    public boolean getOrderQualification(Integer userId, Integer itemId, Integer amount) throws BusinessException{
         //校验商品
         ItemModel itemModel = itemService.getItemByIdFromCache(itemId);
         if(itemModel == null){  //商品不存在
             throw new BusinessException(EmBusinessError.ITEM_NOT_EXIST);
-        }
-        if(!itemModel.getPromoModel().getId().equals(promoId)){  //商品和活动不对应
-            throw new BusinessException(EmBusinessError.PROMO_ERROR);
         }
 
         //校验用户
@@ -85,8 +66,47 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(EmBusinessError.BUY_AMOUNT_ERROR);
         }
 
-        //用户请求频率限制标记，每3s只能请求一次
-        redisTemplate.opsForValue().set("limit_request_order_user_"+userId+"_promo_"+promoId,true,3,TimeUnit.SECONDS);
+        return true;
+    }
+
+
+    //获取下单资格（活动下单）
+    //return true表示有资格下单
+    //其他情况抛出异常
+    @Override
+    public boolean getOrderQualification(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException{
+        //校验商品
+        ItemModel itemModel = itemService.getItemByIdFromCache(itemId);
+        if(itemModel == null){  //商品不存在
+            throw new BusinessException(EmBusinessError.ITEM_NOT_EXIST);
+        }
+
+        //校验活动
+        //PromoModel promoModel = promoService.getPromoByIdFromRedis(promoId);
+        PromoModel promoModel = itemModel.getPromoModel();
+        if(promoModel == null || !promoModel.getId().equals(promoId)){  //商品和活动不对应
+            throw new BusinessException(EmBusinessError.PROMO_ERROR);
+        }
+        if(promoService.judgePromoStatus(promoModel) != 2){  //活动不存在或活动不是正在进行
+            throw new BusinessException(EmBusinessError.PROMO_ERROR);
+        }
+        if(redisTemplate.hasKey("promo_item_stock_sell_out"+promoId)){  //判断是否已售完
+            throw new BusinessException(EmBusinessError.STOCK_SELL_OUT);
+        }
+
+        //校验用户
+        UserModel userModel = userService.getUserByIdFromRedis(userId);
+        if(userModel == null){  //用户信息失效
+            throw new BusinessException(EmBusinessError.USER_LOGIN_TIMEOUT);
+        }
+
+        //每次起购数量和每个用户限购数量
+        if(amount <= 0){
+            throw new BusinessException(EmBusinessError.BUY_AMOUNT_ERROR);
+        }
+
+        //用户请求频率限制标记，每2s只能请求一次
+        redisTemplate.opsForValue().set("limit_request_order_user_"+userId+"_promo_"+promoId,true,2,TimeUnit.SECONDS);
 
         //减秒杀大闸数量
         long doorCount = redisTemplate.opsForValue().increment("promo_door_count_"+promoId,-1);
@@ -99,13 +119,36 @@ public class OrderServiceImpl implements OrderService {
 
 
     //创建订单（普通下单）
-    //todo
+    @Override
+    @Transactional
+    public OrderModel createOrder(Integer userId, Integer itemId, Integer amount) throws BusinessException{
+        //从缓存中获取商品
+        ItemModel itemModel = itemService.getItemByIdFromCache(itemId);
+
+        boolean flag = itemService.decreaseStock(itemId, amount);
+        if(!flag){ //减库存失败，库存不够
+            throw new BusinessException(EmBusinessError.STOCK_NOT_ENOUGH);
+        }
+        //订单入库
+        OrderModel orderModel = new OrderModel();
+        orderModel.setId(generateOrderNo());
+        orderModel.setUserId(userId);
+        orderModel.setItemId(itemId);
+        orderModel.setAmount(amount);
+        orderModel.setItemPrice(itemModel.getPrice());
+        orderModel.setOrderPrice(orderModel.getItemPrice().multiply(new BigDecimal(amount)));
+        //转换orderModel -> orderDO
+        OrderDO orderDO = convertFromOrderModel(orderModel);
+        orderDOMapper.insertSelective(orderDO);
+
+        return orderModel;
+    }
 
 
     //创建订单（活动下单）
     @Override
     @Transactional
-    public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount, String orderId) throws BusinessException {
+    public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException {
         //从缓存中获取商品
         ItemModel itemModel = itemService.getItemByIdFromCache(itemId);
 
@@ -118,7 +161,7 @@ public class OrderServiceImpl implements OrderService {
         try{
             //订单入库
             OrderModel orderModel = new OrderModel();
-            orderModel.setId(orderId);
+            orderModel.setId(generateOrderNo());
             orderModel.setUserId(userId);
             orderModel.setItemId(itemId);
             orderModel.setAmount(amount);
