@@ -38,3 +38,5 @@ src/test/
 /mvnw
 /mvnw.cmd
 /.mvn/
+
+src/main/resources/application-prod.yml

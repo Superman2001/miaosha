@@ -28,10 +28,11 @@ public class CorsConfig {
         CorsConfiguration corsConfiguration = new CorsConfiguration();
 
         //当AllowCredentials=true时,AllowedOrigin不能为 *
-        corsConfiguration.addAllowedOrigin("http://127.0.0.1:8088"); // 允许域名
+//        corsConfiguration.addAllowedOrigin("http://127.0.0.1:8088"); // 允许域名
+        corsConfiguration.addAllowedOrigin("*");
 
         //需要和前端的xhrFields:{withCredentials:true}配合使用
-        corsConfiguration.setAllowCredentials(true); // 允许cookie
+//        corsConfiguration.setAllowCredentials(true); // 允许cookie
 
         corsConfiguration.addAllowedHeader("*"); // 允许头
 
