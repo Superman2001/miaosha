@@ -2,6 +2,8 @@ package com.deng.miaosha.dataobject;
 
 import lombok.Data;
 
+import java.util.Date;
+
 @Data
 public class OrderDO {
     private String id;
@@ -17,4 +19,8 @@ public class OrderDO {
     private Double orderPrice;
 
     private Integer promoId;
+
+    private Date createTime;
+
+    private Integer state;
 }

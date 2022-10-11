@@ -1,6 +1,7 @@
 package com.deng.miaosha.service.model;
 
 import lombok.Data;
+import org.joda.time.DateTime;
 
 import java.math.BigDecimal;
 
@@ -29,4 +30,10 @@ public class OrderModel {
 
     //购买订单金额,等于 amount * itemPrice
     private BigDecimal orderPrice;
+
+    //购买的时间
+    private DateTime createTime;
+
+    //订单的状态
+    private Integer state;
 }

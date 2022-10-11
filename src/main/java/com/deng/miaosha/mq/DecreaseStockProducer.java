@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.mq.message.StockMessage;
 import com.deng.miaosha.service.OrderService;
+import com.deng.miaosha.service.model.OrderModel;
 import org.apache.rocketmq.client.producer.*;
 import org.apache.rocketmq.spring.annotation.RocketMQTransactionListener;
 import org.apache.rocketmq.spring.core.RocketMQLocalTransactionListener;
@@ -29,6 +30,9 @@ public class DecreaseStockProducer {
     private RocketMQTemplate rocketMQTemplate;
     @Autowired
     private RedisTemplate<Object,Object> redisTemplate;
+
+    @Autowired
+    private CancelOrderProduer cancelOrderProduer;
 
     @Autowired
     private OrderService orderService;
@@ -87,7 +91,9 @@ public class DecreaseStockProducer {
 
             try {
                 //执行本地事务
-                orderService.createOrder(userId, itemId, promoId, amount);
+                OrderModel order = orderService.createOrder(userId, itemId, promoId, amount);
+                //发送取消订单的延时消息
+                cancelOrderProduer.sendCancelOrderMsg(order.getId(), promoId, itemId, amount);
             } catch (BusinessException businessException) {  //本地事务失败
                 //设置对应的库存消息的状态为回滚状态
                 //todo 设置数据库

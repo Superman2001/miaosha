@@ -8,6 +8,7 @@ import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.error.EmBusinessError;
 import com.deng.miaosha.service.PromoService;
 import com.deng.miaosha.service.model.PromoModel;
+import com.deng.miaosha.utils.TimeUtils;
 import org.joda.time.DateTime;
 import org.joda.time.Seconds;
 import org.springframework.beans.BeanUtils;
@@ -220,13 +221,19 @@ public class PromoServiceImpl implements PromoService {
 
 
     //增加（redis中的）活动库存
-    //（当创建订单发生异常时，回补redis中库存）
+    //（当订单取消时，回补redis中库存）
     @Override
+    @Transactional
     public void increaseStockFromRedis (Integer promoId, Integer amount) throws BusinessException{
         redisTemplate.opsForValue().increment("promo_item_stock_"+promoId, amount);
     }
 
-
+    //增加（数据库中的）活动库存
+    @Override
+    @Transactional
+    public void increasePromoStock(Integer promoId, Integer amount){
+        promoStockDOMapper.increaseStock(promoId,amount);
+    }
 
 
 
@@ -237,8 +244,8 @@ public class PromoServiceImpl implements PromoService {
         PromoModel promoModel = new PromoModel();
         BeanUtils.copyProperties(promoDO,promoModel);
         promoModel.setPromoItemPrice(BigDecimal.valueOf(promoDO.getPromoItemPrice()));
-        promoModel.setStartDate(new DateTime(promoDO.getStartDate()));
-        promoModel.setEndDate(new DateTime(promoDO.getEndDate()));
+        promoModel.setStartDate(TimeUtils.convertDateToDateTime(promoDO.getStartDate()));
+        promoModel.setEndDate(TimeUtils.convertDateToDateTime(promoDO.getEndDate()));
         return promoModel;
     }
 }

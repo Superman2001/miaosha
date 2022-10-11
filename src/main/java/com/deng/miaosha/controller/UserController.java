@@ -86,8 +86,8 @@ public class UserController {
                                      @RequestParam(name="password")String password) throws BusinessException, UnsupportedEncodingException, NoSuchAlgorithmException {
 
         //验证手机号和对应的otpCode相符合
-        String inRedisOtpCode = (String) redisTemplate.opsForValue().get("register_otp_"+telphone);
-        if(!otpCode.equals(inRedisOtpCode)){  //otpCode经过参数绑定后一定不为null
+        String otpCodeInRedis = (String) redisTemplate.opsForValue().get("register_otp_"+telphone);
+        if(!otpCode.equals(otpCodeInRedis)){  //otpCode经过参数绑定后一定不为null
             throw new BusinessException(EmBusinessError.OTP_CODE_ERROR);
         }
         //用户的注册流程

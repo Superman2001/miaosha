@@ -1,24 +1,28 @@
 package com.deng.miaosha.controller;
 
+import com.deng.miaosha.controller.viewobject.ItemVO;
+import com.deng.miaosha.controller.viewobject.OrderVO;
 import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.error.EmBusinessError;
 import com.deng.miaosha.mq.DecreaseStockProducer;
 import com.deng.miaosha.response.CommonReturnType;
+import com.deng.miaosha.service.ItemService;
 import com.deng.miaosha.service.OrderService;
 import com.deng.miaosha.service.model.OrderModel;
 import com.deng.miaosha.service.model.UserModel;
 import com.google.common.util.concurrent.RateLimiter;
+import org.joda.time.format.DateTimeFormat;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.PostConstruct;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -26,6 +30,9 @@ import java.util.concurrent.*;
 public class OrderController {
     @Autowired
     private OrderService orderService;
+    @Autowired
+    private ItemService itemService;
+
     @Autowired
     private RedisTemplate<Object,Object> redisTemplate;
     @Autowired
@@ -106,5 +113,84 @@ public class OrderController {
     }
 
 
+    //获取当前用户所有订单
+    @GetMapping("/list")
+    public CommonReturnType listOrder(@RequestParam(name = "token")String token) throws BusinessException {
+        if(StringUtils.isEmpty(token)){  //用户未登录
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN);
+        }
+        //从 redis中获取到登录的用户id
+        Integer userId = (Integer) redisTemplate.opsForValue().get("token_"+token);
+        if(userId == null){  //用户登录信息过期
+            throw new BusinessException(EmBusinessError.USER_LOGIN_TIMEOUT);
+        }
+
+        List<OrderModel> orderModelList = orderService.getOrderByUser(userId);
+        //将 List<ItemModel> -> List<ItemVO>
+        List<OrderVO> orderVOList = orderModelList.stream().map(orderModel -> {
+            return convertVOFromModel(orderModel);
+        }).collect(Collectors.toList());
+
+        return CommonReturnType.createSuccessReturn(orderVOList);
+    }
+
+
+    //支付订单
+    @PostMapping("/pay")
+    public CommonReturnType payOrder(@RequestParam(name = "orderId")String id,
+                                     @RequestParam(name = "token")String token) throws BusinessException {
+        if(StringUtils.isEmpty(token)){  //用户未登录
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN);
+        }
+        //从 redis中获取到登录的用户id
+        Integer userId = (Integer) redisTemplate.opsForValue().get("token_"+token);
+        if(userId == null){  //用户登录信息过期
+            throw new BusinessException(EmBusinessError.USER_LOGIN_TIMEOUT);
+        }
+        orderService.payOrder(id);
+        return CommonReturnType.createSuccessReturn(null);
+    }
+
+
+    //取消订单
+    @PostMapping("/cancel")
+    public CommonReturnType cancelOrder(@RequestParam(name = "orderId")String id,
+                                     @RequestParam(name = "token")String token) throws BusinessException {
+        if(StringUtils.isEmpty(token)){  //用户未登录
+            throw new BusinessException(EmBusinessError.USER_NOT_LOGIN);
+        }
+        //从 redis中获取到登录的用户id
+        Integer userId = (Integer) redisTemplate.opsForValue().get("token_"+token);
+        if(userId == null){  //用户登录信息过期
+            throw new BusinessException(EmBusinessError.USER_LOGIN_TIMEOUT);
+        }
+
+        orderService.cancelOrder(id);
+        return CommonReturnType.createSuccessReturn(null);
+    }
+
+
+
+    private OrderVO convertVOFromModel(OrderModel orderModel){
+        if(orderModel == null){
+            return null;
+        }
+        OrderVO orderVO = new OrderVO();
+        BeanUtils.copyProperties(orderModel,orderVO);
+        try {
+            orderVO.setItemName(itemService.getItemById(orderModel.getItemId()).getTitle());
+        } catch (BusinessException businessException) {
+        }
+        orderVO.setCreateTime(orderModel.getCreateTime().toString(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss")));
+        Integer state = orderModel.getState();
+        if(state == 0){
+            orderVO.setState("待支付");
+        }else if(state == 1){
+            orderVO.setState("已支付");
+        }else{
+            orderVO.setState("已取消");
+        }
+        return orderVO;
+    }
 
 }

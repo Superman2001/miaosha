@@ -19,6 +19,9 @@ public interface PromoStockDOMapper {
     //减库存
     int decreaseStock(@Param("promoId") Integer promoId, @Param("amount") Integer amount);
 
+    //加库存
+    int increaseStock(@Param("promoId") Integer promoId, @Param("amount") Integer amount);
+
     int updateByPrimaryKeySelective(PromoStockDO record);
 
     int updateByPrimaryKey(PromoStockDO record);

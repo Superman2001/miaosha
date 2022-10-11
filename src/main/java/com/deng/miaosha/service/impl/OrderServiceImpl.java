@@ -6,6 +6,7 @@ import com.deng.miaosha.dataobject.OrderDO;
 import com.deng.miaosha.dataobject.SequenceDO;
 import com.deng.miaosha.error.BusinessException;
 import com.deng.miaosha.error.EmBusinessError;
+import com.deng.miaosha.mq.CancelOrderProduer;
 import com.deng.miaosha.service.ItemService;
 import com.deng.miaosha.service.OrderService;
 import com.deng.miaosha.service.PromoService;
@@ -14,6 +15,8 @@ import com.deng.miaosha.service.model.ItemModel;
 import com.deng.miaosha.service.model.OrderModel;
 import com.deng.miaosha.service.model.PromoModel;
 import com.deng.miaosha.service.model.UserModel;
+import com.deng.miaosha.utils.TimeUtils;
+import org.joda.time.DateTime;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -26,6 +29,8 @@ import javax.validation.constraints.Min;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -44,6 +49,8 @@ public class OrderServiceImpl implements OrderService {
     private SequenceDOMapper sequenceDOMapper;
     @Autowired
     private RedisTemplate<Object,Object> redisTemplate;
+    @Autowired
+    private CancelOrderProduer cancelOrderProduer;
 
 
     //获取下单资格（普通下单）
@@ -120,7 +127,7 @@ public class OrderServiceImpl implements OrderService {
 
     //创建订单（普通下单）
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public OrderModel createOrder(Integer userId, Integer itemId, Integer amount) throws BusinessException{
         //从缓存中获取商品
         ItemModel itemModel = itemService.getItemByIdFromCache(itemId);
@@ -137,9 +144,14 @@ public class OrderServiceImpl implements OrderService {
         orderModel.setAmount(amount);
         orderModel.setItemPrice(itemModel.getPrice());
         orderModel.setOrderPrice(orderModel.getItemPrice().multiply(new BigDecimal(amount)));
+        orderModel.setCreateTime(DateTime.now());
+        orderModel.setState(0);
         //转换orderModel -> orderDO
         OrderDO orderDO = convertFromOrderModel(orderModel);
         orderDOMapper.insertSelective(orderDO);
+
+        //发送取消订单的延时消息
+        cancelOrderProduer.sendCancelOrderMsg(orderModel.getId(), orderModel.getPromoId(), orderDO.getItemId(), orderModel.getAmount());
 
         return orderModel;
     }
@@ -147,7 +159,7 @@ public class OrderServiceImpl implements OrderService {
 
     //创建订单（活动下单）
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException {
         //从缓存中获取商品
         ItemModel itemModel = itemService.getItemByIdFromCache(itemId);
@@ -168,6 +180,8 @@ public class OrderServiceImpl implements OrderService {
             orderModel.setPromoId(promoId);
             orderModel.setItemPrice(itemModel.getPromoModel().getPromoItemPrice());
             orderModel.setOrderPrice(orderModel.getItemPrice().multiply(new BigDecimal(amount)));
+            orderModel.setCreateTime(DateTime.now());
+            orderModel.setState(0);
             //转换orderModel -> orderDO
             OrderDO orderDO = convertFromOrderModel(orderModel);
             orderDOMapper.insertSelective(orderDO);
@@ -216,12 +230,61 @@ public class OrderServiceImpl implements OrderService {
     }
 
 
+    //根据用户id查订单
+    public List<OrderModel> getOrderByUser(Integer userId){
+        List<OrderDO> orderDOList = orderDOMapper.selectByUserId(userId);
+        List<OrderModel> orderModelList = new ArrayList<>();
+        for(OrderDO orderDO : orderDOList){
+            orderModelList.add(convertOrderDOToOrderModel(orderDO));
+        }
+        return orderModelList;
+    }
 
 
+    //支付（改变订单状态为 1）
+    @Transactional(rollbackFor = Exception.class)
+    public boolean payOrder(String orderId) throws BusinessException {
+        int flag = orderDOMapper.payOrder(orderId);
+        if(flag == 0){  //支付失败
+            OrderDO orderDO = orderDOMapper.selectByPrimaryKey(orderId);
+            if(orderDO == null){
+                throw new BusinessException(EmBusinessError.ORDER_NOT_EXIST);
+            }else{
+                int state = orderDO.getState();
+                if(state == 1){  //已支付
+                    throw new BusinessException(EmBusinessError.PAYED_ERROR);
+                }else if(state == 2){  //已取消
+                    throw new BusinessException(EmBusinessError.CANCELED_ERROR);
+                }
+            }
+        }
+        return true;
+    }
 
-
-
-
+    //取消（改变订单状态为 2 并回补库存）
+    @Transactional(rollbackFor = Exception.class)
+    public boolean cancelOrder(String orderId) throws BusinessException {
+        //检查订单状态，若为未支付，则改变订单状态
+        int flag = orderDOMapper.cancelOrder(orderId);
+        if(flag == 0){  //取消失败
+            OrderDO orderDO = orderDOMapper.selectByPrimaryKey(orderId);
+            if(orderDO == null){
+                throw new BusinessException(EmBusinessError.ORDER_NOT_EXIST);
+            }else{
+                int state = orderDO.getState();
+                if(state == 1){  //已支付
+                    throw new BusinessException(EmBusinessError.PAYED_ERROR);
+                }else if(state == 2){  //已取消
+                    throw new BusinessException(EmBusinessError.CANCELED_ERROR);
+                }
+            }
+        }
+        //回补库存
+        OrderDO orderDO = orderDOMapper.selectByPrimaryKey(orderId);
+        promoService.increaseStockFromRedis(orderDO.getPromoId(),orderDO.getAmount());
+        promoService.increasePromoStock(orderDO.getPromoId(),orderDO.getAmount());
+        return true;
+    }
 
 
 
@@ -233,6 +296,20 @@ public class OrderServiceImpl implements OrderService {
         BeanUtils.copyProperties(orderModel,orderDO);
         orderDO.setItemPrice(orderModel.getItemPrice().doubleValue());
         orderDO.setOrderPrice(orderModel.getOrderPrice().doubleValue());
+        orderDO.setCreateTime(TimeUtils.convertDateTimeToDate(orderModel.getCreateTime()));
         return orderDO;
     }
+
+    private OrderModel convertOrderDOToOrderModel(OrderDO orderDO){
+        if(orderDO == null){
+            return null;
+        }
+        OrderModel orderModel = new OrderModel();
+        BeanUtils.copyProperties(orderDO ,orderModel);
+        orderModel.setItemPrice(BigDecimal.valueOf(orderDO.getItemPrice()));
+        orderModel.setOrderPrice(BigDecimal.valueOf(orderDO.getOrderPrice()));
+        orderModel.setCreateTime(TimeUtils.convertDateToDateTime(orderDO.getCreateTime()));
+        return orderModel;
+    }
+
 }

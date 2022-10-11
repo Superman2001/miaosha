@@ -25,6 +25,11 @@ public enum EmBusinessError implements CommonError{
     BUY_AMOUNT_ERROR(30004,"低于起购数量或超过限购数量"),
     STOCK_SELL_OUT(30005,"商品已售完"),
 
+    //40000支付订单错误
+    PAYED_ERROR(40001,"订单已支付，请勿重复操作"),
+    CANCELED_ERROR(40002,"订单已取消，请勿重复操作"),
+    ORDER_NOT_EXIST(40003,"订单不存在"),
+
     PROMO_BUSY(10000,"当前参与人数过多，请稍后重试"),
 
     UNKNOWN_ERROR(500500,"未知错误,请联系管理员"),

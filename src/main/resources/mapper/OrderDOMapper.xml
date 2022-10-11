@@ -10,11 +10,13 @@
     <result column="item_price" jdbcType="DOUBLE" property="itemPrice" />
     <result column="amount" jdbcType="INTEGER" property="amount" />
     <result column="order_price" jdbcType="DOUBLE" property="orderPrice" />
+    <result column="create_time" jdbcType="TIMESTAMP" property="createTime" />
+    <result column="state" jdbcType="INTEGER" property="state" />
   </resultMap>
   <sql id="Base_Column_List">
-
-    id, user_id, item_id, promo_id,item_price, amount, order_price
+    id, user_id, item_id, promo_id,item_price, amount, order_price , create_time, state
   </sql>
+
   <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
 
     select 
@@ -22,20 +24,33 @@
     from order_info
     where id = #{id,jdbcType=VARCHAR}
   </select>
+
+
+  <select id="selectByUserId" parameterType="java.lang.Integer" resultMap="BaseResultMap">
+
+    select
+    <include refid="Base_Column_List" />
+    from order_info
+    where user_id = #{userId,jdbcType=VARCHAR}
+  </select>
+
+
   <delete id="deleteByPrimaryKey" parameterType="java.lang.String">
 
     delete from order_info
     where id = #{id,jdbcType=VARCHAR}
   </delete>
+
   <insert id="insert" parameterType="com.deng.miaosha.dataobject.OrderDO">
 
     insert into order_info (id, user_id, item_id, promo_id,
-      item_price, amount, order_price
+      item_price, amount, order_price, create_time, state
       )
     values (#{id,jdbcType=VARCHAR}, #{userId,jdbcType=INTEGER}, #{itemId,jdbcType=INTEGER}, #{promoId,jdbcType=INTEGER},
-    #{itemPrice,jdbcType=DOUBLE}, #{amount,jdbcType=INTEGER}, #{orderPrice,jdbcType=DOUBLE}
-      )
+    #{itemPrice,jdbcType=DOUBLE}, #{amount,jdbcType=INTEGER}, #{orderPrice,jdbcType=DOUBLE},
+    #{createTime,jdbcType=TIMESTAMP}, #{state,jdbcType=INTEGER})
   </insert>
+
   <insert id="insertSelective" parameterType="com.deng.miaosha.dataobject.OrderDO">
 
     insert into order_info
@@ -61,6 +76,12 @@
       <if test="orderPrice != null">
         order_price,
       </if>
+      <if test="createTime != null">
+        create_time,
+      </if>
+      <if test="state != null">
+        state
+      </if>
     </trim>
     <trim prefix="values (" suffix=")" suffixOverrides=",">
       <if test="id != null">
@@ -84,8 +105,15 @@
       <if test="orderPrice != null">
         #{orderPrice,jdbcType=DOUBLE},
       </if>
+      <if test="createTime != null">
+        #{createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="state != null">
+        #{state,jdbcType=INTEGER}
+      </if>
     </trim>
   </insert>
+
   <update id="updateByPrimaryKeySelective" parameterType="com.deng.miaosha.dataobject.OrderDO">
 
     update order_info
@@ -105,9 +133,16 @@
       <if test="orderPrice != null">
         order_price = #{orderPrice,jdbcType=DOUBLE},
       </if>
+      <if test="createTime != null">
+        create_time = #{createTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="state != null">
+        state = #{state,jdbcType=INTEGER}
+      </if>
     </set>
     where id = #{id,jdbcType=VARCHAR}
   </update>
+
   <update id="updateByPrimaryKey" parameterType="com.deng.miaosha.dataobject.OrderDO">
 
     update order_info
@@ -115,7 +150,29 @@
       item_id = #{itemId,jdbcType=INTEGER},
       item_price = #{itemPrice,jdbcType=DOUBLE},
       amount = #{amount,jdbcType=INTEGER},
-      order_price = #{orderPrice,jdbcType=DOUBLE}
+      order_price = #{orderPrice,jdbcType=DOUBLE},
+      create_time = #{createTime,jdbcType=TIMESTAMP},
+      state = #{state,jdbcType=INTEGER}
     where id = #{id,jdbcType=VARCHAR}
   </update>
+
+  <update id="updateState" parameterType="com.deng.miaosha.dataobject.OrderDO">
+    update order_info
+    set state = #{state,jdbcType=INTEGER}
+    where id = #{id,jdbcType=VARCHAR}
+  </update>
+
+  <update id="payOrder" parameterType="java.lang.String">
+
+    update order_info
+    set state = 1
+    where id = #{id,jdbcType=VARCHAR} and state = 0
+  </update>
+
+  <update id="cancelOrder" parameterType="java.lang.String">
+    update order_info
+    set state = 2
+    where id = #{id,jdbcType=VARCHAR} and state = 0
+  </update>
+
 </mapper>

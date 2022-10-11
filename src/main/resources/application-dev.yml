@@ -43,7 +43,12 @@ rocketmq:
 mq:
   topic:
     decreasePromoStock: decrease-promo-stock-topic
+    increasePromoStock: increase-promo-stock-topic
+    cancelOrder: cancel-order-topic
 
   group:
     consumer:
       decreasePromoStock: decrease-promo-stock-consumer-group
+      increasePromoStock: increase-promo-stock-consumer-group
+      cancelOrder: cancel-order-consumer-group
+

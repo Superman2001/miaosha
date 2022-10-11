@@ -101,4 +101,11 @@
         set stock = stock - #{amount}
         where promo_id = #{promoId} and stock >= #{amount}
     </update>
+
+
+    <update id="increaseStock">
+        update promo_stock
+        set stock = stock + #{amount}
+        where promo_id = #{promoId}
+    </update>
 </mapper>
